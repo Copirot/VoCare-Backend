@@ -6,18 +6,12 @@ import cors from 'cors';
 const app = express();
 app.use(express.json());
 
-// Permitir solicitudes desde tu frontend (Firebase o localhost)
-app.use(cors({
-  origin: '*', // En producción, cambia '*' por tu dominio de Firebase
-  methods: ['GET', 'POST']
-}));
+app.use(cors({ origin: '*' }));
 
-// Ruta de prueba
 app.get('/', (req, res) => {
   res.send('¡Backend con Groq funcionando!');
 });
 
-// Endpoint de la IA
 app.post('/ai', async (req, res) => {
   const { message } = req.body;
 
@@ -26,20 +20,21 @@ app.post('/ai', async (req, res) => {
   }
 
   try {
-    // Petición a Groq (usa Llama 3, 8B)
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
-        model: 'llama3-8b-8192', // Modelo rápido y gratuito
+        model: 'llama-3.1-8b-instant', // ✅ Modelo activo y recomendado
         messages: [
           {
             role: 'system',
-            content: 'Eres un asistente vocacional experto. Ayudas a estudiantes a explorar carreras, universidades y opciones académicas. Responde de forma clara, útil y alentadora. Si no sabes algo, sugiere buscar en fuentes oficiales. Sé conciso (máximo 3 oraciones).'
+            content: 'Eres un asistente vocacional experto. Ayudas a estudiantes a explorar carreras, universidades y opciones académicas. Responde de forma clara, útil y alentadora. Sé breve (máximo 3 oraciones).'
           },
           { role: 'user', content: message.trim() }
         ],
+        temperature: 0.7,
         max_tokens: 500,
-        temperature: 0.7
+        top_p: 1,
+        stream: false // No usamos streaming en este caso
       },
       {
         headers: {
@@ -51,7 +46,6 @@ app.post('/ai', async (req, res) => {
     );
 
     if (!response.data?.choices?.[0]?.message?.content) {
-      console.error('⚠️ Respuesta vacía de Groq:', response.data);
       return res.status(500).json({
         response: 'No pude generar una respuesta. ¿Podrías reformular tu pregunta?'
       });
@@ -62,17 +56,16 @@ app.post('/ai', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error con Groq:', error.message);
-    if (error.response) {
-      console.error('Estado:', error.response.status);
+    if (error.response?.data) {
       console.error('Detalles:', error.response.data);
     }
     res.status(500).json({
-      response: 'Lo siento, hubo un problema técnico. Por favor, inténtalo de nuevo.'
+      response: 'Lo siento, hubo un problema. Por favor, inténtalo de nuevo.'
     });
   }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
+  console.log(`Servidor en puerto ${PORT}`);
 });
