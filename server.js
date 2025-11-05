@@ -6,15 +6,15 @@ import cors from 'cors';
 const app = express();
 app.use(express.json());
 
-// Habilitar CORS para tu frontend en Firebase
+// Permitir solicitudes desde tu frontend (Firebase o localhost)
 app.use(cors({
-  origin: '*', // En producción, reemplaza con tu dominio de Firebase
+  origin: '*', // En producción, cambia '*' por tu dominio de Firebase
   methods: ['GET', 'POST']
 }));
 
 // Ruta de prueba
 app.get('/', (req, res) => {
-  res.send('¡Backend del asistente vocacional funcionando!');
+  res.send('¡Backend con Groq funcionando!');
 });
 
 // Endpoint de la IA
@@ -26,33 +26,34 @@ app.post('/ai', async (req, res) => {
   }
 
   try {
+    // Petición a Groq (usa Llama 3, 8B)
     const response = await axios.post(
-      'https://api.deepseek.com/v1/chat/completions', // ✅ Sin espacios
+      'https://api.groq.com/openai/v1/chat/completions',
       {
-        model: 'deepseek-chat',
+        model: 'llama3-8b-8192', // Modelo rápido y gratuito
         messages: [
           {
             role: 'system',
-            content: 'Eres un asistente vocacional experto. Ayudas a estudiantes a explorar carreras, universidades y opciones académicas según sus intereses, habilidades y metas. Responde de forma clara, alentadora, útil y detallada. Si no estás seguro, sugiere recursos o áreas relacionadas.'
+            content: 'Eres un asistente vocacional experto. Ayudas a estudiantes a explorar carreras, universidades y opciones académicas. Responde de forma clara, útil y alentadora. Si no sabes algo, sugiere buscar en fuentes oficiales. Sé conciso (máximo 3 oraciones).'
           },
           { role: 'user', content: message.trim() }
         ],
-        stream: false
+        max_tokens: 500,
+        temperature: 0.7
       },
       {
         headers: {
-          'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        timeout: 12000 // 12 segundos
+        timeout: 10000
       }
     );
 
-    // ✅ Verificar que la API devolvió una respuesta
     if (!response.data?.choices?.[0]?.message?.content) {
-      console.error('⚠️ Respuesta inesperada de DeepSeek:', response.data);
+      console.error('⚠️ Respuesta vacía de Groq:', response.data);
       return res.status(500).json({
-        response: 'No pude generar una respuesta en este momento. ¿Podrías reformular tu pregunta?'
+        response: 'No pude generar una respuesta. ¿Podrías reformular tu pregunta?'
       });
     }
 
@@ -60,28 +61,18 @@ app.post('/ai', async (req, res) => {
     res.json({ response: aiResponse });
 
   } catch (error) {
-    console.error('❌ Error en /ai:', error.message);
-    
+    console.error('❌ Error con Groq:', error.message);
     if (error.response) {
       console.error('Estado:', error.response.status);
-      console.error('Cuerpo:', error.response.data);
-      
-      // Mensaje amigable según el tipo de error
-      if (error.response.status === 401) {
-        return res.status(500).json({ response: 'Error de autenticación con el servicio de IA.' });
-      }
-      if (error.response.status === 400) {
-        return res.status(500).json({ response: 'La solicitud no se pudo procesar. Inténtalo de nuevo.' });
-      }
+      console.error('Detalles:', error.response.data);
     }
-
     res.status(500).json({
-      response: 'Lo siento, hubo un problema técnico. Por favor, inténtalo más tarde.'
+      response: 'Lo siento, hubo un problema técnico. Por favor, inténtalo de nuevo.'
     });
   }
 });
 
-const PORT = process.env.PORT || 3000; // Render usa PORT
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`Servidor corriendo en puerto ${PORT}`);
 });
