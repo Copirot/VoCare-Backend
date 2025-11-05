@@ -60,7 +60,7 @@ app.post('/ai', async (req, res) => {
       console.error('Detalles:', error.response.data);
     }
     res.status(500).json({
-      response: 'Lo siento, hubo un problema. Por favor, inténtalo de nuevo.'
+      response: 'Lo siento, hubo un problema. Intentalo de nuevo.'
     });
   }
 });
